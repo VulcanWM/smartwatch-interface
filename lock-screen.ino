@@ -17,6 +17,11 @@ bool heldDown = false;
 int buzzerPin = 5;
 bool loggedIn = false;
 
+int incorrectAttempts = 0;
+bool inLockdown = false;
+unsigned long lockdownStartTime = 0;
+unsigned long lockdownFor = 0;
+
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
@@ -48,87 +53,116 @@ void loop() {
   if (loggedIn == true){
     
   } else {
-    int rotaryState = analogRead(rotaryPin);
-    buttonState = digitalRead(buttonPin);
+    if (inLockdown == true){
+      unsigned long elapsed = millis() - lockdownStartTime;
+      long secondsLeft = (long)((lockdownFor - elapsed) / 1000);
 
-    int number = fmin(rotaryState / 100, 9);
-
-    char newDisplayString[9];
-
-    for (int i = 0; i < 4; i++){
-      if (currentIndex == i){
-        newDisplayString[i*2] = '0' + number;
-      } else if (digits[i] == -1){
-        newDisplayString[i*2] = '_';
-      } else {
-        newDisplayString[i*2] = '0' + digits[i];
-      }
-      newDisplayString[i*2+1] = ' ';
-    }
-    newDisplayString[8] = '\0';
-
-    if (strcmp(newDisplayString, displayString) != 0){
+      Serial.print(secondsLeft);
       display.clearDisplay();
       display.setTextSize(2);
       display.setTextColor(SSD1306_WHITE);
       display.setCursor(0,0);
-      display.println(newDisplayString);
+      display.println(F("Lockdown."));
+      display.print(F("Will unlock in "));
+      display.print(secondsLeft);
+      display.print(F(" seconds"));
       display.display();
-      strcpy(displayString, newDisplayString);
-    }
+      
+      if (elapsed >= lockdownFor) {
+        inLockdown = false;
+      }
+    } else {
+      int rotaryState = analogRead(rotaryPin);
+      buttonState = digitalRead(buttonPin);
 
-    if (buttonState == HIGH && heldDown == false){
-      if (currentIndex == 3){
-        digits[currentIndex] = number;
-        Serial.print(digits[0] == password[0] - '0' && 
-          digits[1] == password[1] - '0' &&
-          digits[2] == password[2] - '0' &&
-          digits[3] == password[3] - '0');
-        if (digits[0] == password[0] - '0' && 
-          digits[1] == password[1] - '0' &&
-          digits[2] == password[2] - '0' &&
-          digits[3] == password[3] - '0'){
-          tone(buzzerPin, 1000);
-          delay(500);
-          noTone(buzzerPin);
-          loggedIn = true;
+      int number = fmin(rotaryState / 100, 9);
 
-          display.clearDisplay();
-          display.setTextSize(2);
-          display.setTextColor(SSD1306_WHITE);
-          display.setCursor(0,0);
-          display.println(F("Welcome"));
-          display.display();
+      char newDisplayString[9];
+
+      for (int i = 0; i < 4; i++){
+        if (currentIndex == i){
+          newDisplayString[i*2] = '0' + number;
+        } else if (digits[i] == -1){
+          newDisplayString[i*2] = '_';
         } else {
-          digits[0] = -1;
-          digits[1] = -1;
-          digits[2] = -1;
-          digits[3] = -1;
-          currentIndex = 0;
-          tone(buzzerPin, 200);
-          delay(100);
-          noTone(buzzerPin);
-          delay(50);
-          tone(buzzerPin, 200);
-          delay(100);
-          noTone(buzzerPin);
-          delay(50);
-          tone(buzzerPin, 200);
+          newDisplayString[i*2] = '0' + digits[i];
+        }
+        newDisplayString[i*2+1] = ' ';
+      }
+      newDisplayString[8] = '\0';
+
+      if (strcmp(newDisplayString, displayString) != 0){
+        display.clearDisplay();
+        display.setTextSize(2);
+        display.setTextColor(SSD1306_WHITE);
+        display.setCursor(0,0);
+        display.println(newDisplayString);
+        display.display();
+        strcpy(displayString, newDisplayString);
+      }
+
+      if (buttonState == HIGH && heldDown == false){
+        if (currentIndex == 3){
+          digits[currentIndex] = number;
+          Serial.print(digits[0] == password[0] - '0' && 
+            digits[1] == password[1] - '0' &&
+            digits[2] == password[2] - '0' &&
+            digits[3] == password[3] - '0');
+          if (digits[0] == password[0] - '0' && 
+            digits[1] == password[1] - '0' &&
+            digits[2] == password[2] - '0' &&
+            digits[3] == password[3] - '0'){
+            tone(buzzerPin, 1000);
+            delay(500);
+            noTone(buzzerPin);
+            loggedIn = true;
+            incorrectAttempts = 0;
+
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(0,0);
+            display.println(F("Welcome"));
+            display.display();
+          } else {
+            digits[0] = -1;
+            digits[1] = -1;
+            digits[2] = -1;
+            digits[3] = -1;
+            currentIndex = 0;
+            tone(buzzerPin, 200);
+            delay(100);
+            noTone(buzzerPin);
+            delay(50);
+            tone(buzzerPin, 200);
+            delay(100);
+            noTone(buzzerPin);
+            delay(50);
+            tone(buzzerPin, 200);
+            delay(100);
+            noTone(buzzerPin);
+            incorrectAttempts += 1;
+            if (incorrectAttempts >= 3){
+              Serial.print("too much");
+              inLockdown = true;
+              lockdownFor = (incorrectAttempts - 2) * 60000;
+              Serial.print(lockdownFor);
+              lockdownStartTime = millis();
+            }
+          }
+        }
+        else {
+          digits[currentIndex] = number;
+          currentIndex++;
+          heldDown = true;
+          tone(buzzerPin, 500);
           delay(100);
           noTone(buzzerPin);
         }
       }
-      else {
-        digits[currentIndex] = number;
-        currentIndex++;
-        heldDown = true;
-        tone(buzzerPin, 500);
-        delay(100);
-        noTone(buzzerPin);
+      if (buttonState == LOW && heldDown == true){
+        heldDown = false;
       }
-    }
-    if (buttonState == LOW && heldDown == true){
-      heldDown = false;
     }
   }
 }
