@@ -16,7 +16,7 @@ int ledPin = 4;
 // full program global variables
 bool loggedIn = false;
 int buttonState = LOW;
-bool heldDown = false;
+bool heldDown = false; // to prevent it acting multiple times on the same button press
 
 // initialising lock screen
 char password[5] = "0000";
@@ -29,6 +29,9 @@ int incorrectAttempts = 0;
 bool inLockdown = false;
 unsigned long lockdownStartTime = 0;
 unsigned long lockdownFor = 0;
+
+// clock times
+
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -54,6 +57,7 @@ void buzz_multiple_times(int times, int frequency, int time_during, int time_bet
 }
 
 void setup() {
+  // setting up inputs and outputs
   pinMode(rotaryPin, INPUT);
   pinMode(buttonPin, INPUT);
   pinMode(buzzerPin, OUTPUT);
@@ -65,6 +69,7 @@ void setup() {
     for(;;);
   }
 
+  // default screen settings
   default_screen_setup(2);
   display.println(F("_ _ _ _"));
   display.display();
@@ -72,11 +77,12 @@ void setup() {
 
 void loop() {
   if (loggedIn == true){
+    // main program once logged in
     int rotaryState = analogRead(rotaryPin);
 
     int number = fmin(rotaryState / 200, 4);
     if (number == 0){
-      //
+      // clock face
     } else if (number == 1) {
       // 
     } else if (number == 2) {
@@ -88,6 +94,7 @@ void loop() {
     }
   } else {
     if (inLockdown == true){
+      // calculating time left
       unsigned long elapsed = millis() - lockdownStartTime;
       long secondsLeft = (long)((lockdownFor - elapsed) / 1000);
 
@@ -96,26 +103,30 @@ void loop() {
          "Lockdown. Will unlock in %ld seconds", secondsLeft);
 
       if (strcmp(screenDisplay, lockdownDisplayText) != 0){
+        // displaying lockdown screen if seconds have changed
         default_screen_setup(2);
         display.println(F("Lockdown."));
         display.print(F("Will unlock in "));
         display.print(secondsLeft);
         display.print(F(" seconds"));
         display.display();
+        strcpy(lockdownDisplayText, screenDisplay);
 
+        // removes lockdown once time has ended
         if (elapsed >= lockdownFor) {
           inLockdown = false;
         }
-        strcpy(lockdownDisplayText, screenDisplay);
       }
     } else {
+      // needing to enter pin
       int rotaryState = analogRead(rotaryPin);
       buttonState = digitalRead(buttonPin);
 
+      // getting pin number from rotary
       int number = fmin(rotaryState / 100, 9);
 
+      // generating display string for screen
       char displayString[9];
-
       for (int i = 0; i < 4; i++){
         if (currentIndex == i){
           displayString[i*2] = '0' + number;
@@ -128,6 +139,7 @@ void loop() {
       }
       displayString[8] = '\0';
 
+      // displays need display string if has changed since last time
       if (strcmp(displayString, screenDisplay) != 0){
         default_screen_setup(2);
         display.println(displayString);
@@ -136,13 +148,16 @@ void loop() {
       }
 
       if (buttonState == HIGH && heldDown == false){
+        // if button has just been held down
         if (currentIndex == 3){
+          // if last digit has been entered
           digits[currentIndex] = number;
           if (digits[0] == password[0] - '0' && 
             digits[1] == password[1] - '0' &&
             digits[2] == password[2] - '0' &&
             digits[3] == password[3] - '0'){
             buzz_multiple_times(1, 1000, 500, 500);
+            // if correct password
             loggedIn = true;
             incorrectAttempts = 0;
 
@@ -150,18 +165,20 @@ void loop() {
             display.println(F("Welcome"));
             display.display();
           } else {
+            // if password is incorrect
             for (int i = 0; i < 4; i++) digits[i] = -1;
             currentIndex = 0;
             buzz_multiple_times(3, 200, 100, 50);
             incorrectAttempts += 1;
             if (incorrectAttempts >= 3){
+              // if has entered incorrect password too many times
               inLockdown = true;
               lockdownFor = (incorrectAttempts - 2) * 60000;
               lockdownStartTime = millis();
             }
           }
-        }
-        else {
+        } else {
+          // if entered digit is not last digit to enter
           digits[currentIndex] = number;
           currentIndex++;
           heldDown = true;
@@ -169,6 +186,7 @@ void loop() {
         }
       }
       if (buttonState == LOW && heldDown == true){
+        // has stopped holding button
         heldDown = false;
       }
     }
