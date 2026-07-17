@@ -13,16 +13,18 @@ int buttonPin = 6;
 int buzzerPin = 5;
 int ledPin = 4;
 
+// full program global variables
+bool loggedIn = false;
+int buttonState = LOW;
+bool heldDown = false;
+
 // initialising lock screen
 char password[5] = "0000";
 int currentIndex = 0;
 int digits[4] = {-1, -1, -1, -1};
 char screenDisplay[100] = "_ _ _ _ ";
 
-int buttonState = LOW;
-bool heldDown = false;
-
-bool loggedIn = false;
+// lockdown global variables
 int incorrectAttempts = 0;
 bool inLockdown = false;
 unsigned long lockdownStartTime = 0;
