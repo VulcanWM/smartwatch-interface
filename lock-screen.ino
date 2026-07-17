@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "DHT20.h"
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -8,6 +9,7 @@
 // inputs
 int rotaryPin = 0;
 int buttonPin = 6;
+DHT20 DHT;
 
 // outputs
 int buzzerPin = 5;
@@ -22,16 +24,17 @@ bool heldDown = false; // to prevent it acting multiple times on the same button
 char password[5] = "0000";
 int currentIndex = 0;
 int digits[4] = {-1, -1, -1, -1};
-char screenDisplay[100] = "_ _ _ _ ";
+
+// to prevent it redisplaying content multiple times
+char screenDisplay[50] = "_ _ _ _ ";
+int previousTemperature = -1000;
+int previousHumidity = -1000;
 
 // lockdown global variables
 int incorrectAttempts = 0;
 bool inLockdown = false;
 unsigned long lockdownStartTime = 0;
 unsigned long lockdownFor = 0;
-
-// clock times
-
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -63,6 +66,7 @@ void setup() {
   pinMode(buzzerPin, OUTPUT);
   pinMode(ledPin, OUTPUT);
   Serial.begin(9600);
+  
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -80,17 +84,100 @@ void loop() {
     // main program once logged in
     int rotaryState = analogRead(rotaryPin);
 
-    int number = fmin(rotaryState / 200, 4);
+    int number = fmin(rotaryState / 150, 6);
     if (number == 0){
       // clock face
+
+      // calculates the time based on when it started (start time is 12:00)
+      unsigned long totalSeconds = millis() / 1000;
+      int hours = 12 + totalSeconds / 3600;
+      int minutes = (totalSeconds % 3600) / 60;
+      hours %= 24;
+
+      // generates time display screen
+      char timeDisplay[6];
+      snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d", hours, minutes);
+      char fullDisplay[20];
+      snprintf(fullDisplay, sizeof(fullDisplay), "Hi! %s", timeDisplay);
+
+      if (strcmp(fullDisplay, screenDisplay) != 0){
+        // shows new time if it has changed since last display
+        default_screen_setup(3);
+        display.println("Hi!");
+        display.print(timeDisplay);
+        display.display();
+        strcpy(screenDisplay, fullDisplay);
+      }
     } else if (number == 1) {
-      // 
+      // stopwatch
+      if (strcmp(screenDisplay, "Stopwatch") != 0){
+        default_screen_setup(2);
+        display.println(F("Stopwatch"));
+        display.display();
+        strcpy(screenDisplay, "Stopwatch");
+      }
     } else if (number == 2) {
-      //
-    } else if (number == 3){
-      //
-    } else if (number == 4) {
-      //
+      // timer
+      if (strcmp(screenDisplay, "Timer") != 0){
+        default_screen_setup(2);
+        display.println(F("Timer"));
+        display.display();
+        strcpy(screenDisplay, "Timer");
+      }
+    } else if (number == 3) {
+      if (DHT.read() == DHT20_OK) {
+        // if the reading is sucessful
+        float temperature = DHT.getTemperature();
+        float humidity = DHT.getHumidity();
+
+        if (temperature != previousTemperature ||
+          humidity != previousHumidity ||
+          strcmp(screenDisplay, "Temperature") != 0) {
+          // if the temperature and humidity are different from before
+
+          default_screen_setup(2);
+          display.print(F("Temperature: "));
+          display.print(temperature);
+          display.println(F(" C"));
+
+          display.print(F("Humidity: "));
+          display.print(humidity);
+          display.println(F(" %"));
+
+          display.display();
+
+          previousTemperature = temperature;
+          previousHumidity = humidity;
+          strcpy(screenDisplay, "Temperature");
+        }
+      }
+
+      delay(100);
+    }
+    else if (number == 4) {
+      // snake
+      if (strcmp(screenDisplay, "Snake") != 0){
+        default_screen_setup(2);
+        display.println(F("Snake"));
+        display.display();
+        strcpy(screenDisplay, "Snake");
+      }
+    } else if (number == 5){
+      // sound monitor
+      if (strcmp(screenDisplay, "Sound Monitor") != 0){
+        default_screen_setup(2);
+        display.println(F("Sound Monitor"));
+        display.display();
+        strcpy(screenDisplay, "Sound Monitor");
+      }
+    } else if (number == 6){
+      // settings
+      if (strcmp(screenDisplay, "Settings") != 0){
+        default_screen_setup(2);
+        display.println(F("Settings"));
+        display.display();
+        strcpy(screenDisplay, "Settings");
+      }
     }
   } else {
     if (inLockdown == true){
@@ -98,7 +185,7 @@ void loop() {
       unsigned long elapsed = millis() - lockdownStartTime;
       long secondsLeft = (long)((lockdownFor - elapsed) / 1000);
 
-      char lockdownDisplayText[100];
+      char lockdownDisplayText[50];
       snprintf(lockdownDisplayText, sizeof(lockdownDisplayText),
          "Lockdown. Will unlock in %ld seconds", secondsLeft);
 
@@ -110,7 +197,7 @@ void loop() {
         display.print(secondsLeft);
         display.print(F(" seconds"));
         display.display();
-        strcpy(lockdownDisplayText, screenDisplay);
+        strcpy(screenDisplay, lockdownDisplayText);
 
         // removes lockdown once time has ended
         if (elapsed >= lockdownFor) {
@@ -144,7 +231,7 @@ void loop() {
         default_screen_setup(2);
         display.println(displayString);
         display.display();
-        strcpy(displayString, screenDisplay);
+        strcpy(screenDisplay, displayString);
       }
 
       if (buttonState == HIGH && heldDown == false){
@@ -152,6 +239,7 @@ void loop() {
         if (currentIndex == 3){
           // if last digit has been entered
           digits[currentIndex] = number;
+          heldDown = true;
           if (digits[0] == password[0] - '0' && 
             digits[1] == password[1] - '0' &&
             digits[2] == password[2] - '0' &&
@@ -161,9 +249,9 @@ void loop() {
             loggedIn = true;
             incorrectAttempts = 0;
 
-            default_screen_setup(2);
-            display.println(F("Welcome"));
-            display.display();
+            // default_screen_setup(2);
+            // display.println(F("Welcome"));
+            // display.display();
           } else {
             // if password is incorrect
             for (int i = 0; i < 4; i++) digits[i] = -1;
