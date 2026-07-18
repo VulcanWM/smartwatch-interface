@@ -39,9 +39,24 @@ unsigned long lockdownStartTime = 0;
 unsigned long lockdownFor = 0;
 
 // global variables for the sound level
+int previousSoundLevel = -1000;
+
+// global variables for EEPROM
 int maxSoundLevel;
 const int soundThresholdAddress = 0;
-int previousSoundLevel = -1000;
+int clockFormat; // 0 will be 24 hour; 1 will be 12pm
+const int clockFormatAddress = 1;
+int temperatureUnit; // 0 will be celsius; 1 will be fahrenheit
+const int temperatureUnitAddress = 2;
+
+
+// global variables for stopwatch
+unsigned long timeSinceStart = 0;
+bool stopwatchStarted = false;
+
+// global variables for timer
+int timerMinutes = 0;
+bool timerStarted = false;
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -75,14 +90,23 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   Serial.begin(9600);
 
-  // gets sound level from EEPROM
+  // getting all values from EEPROM
   EEPROM.get(soundThresholdAddress, maxSoundLevel);
 
   if (maxSoundLevel < 0 || maxSoundLevel > 1023) {
     maxSoundLevel = 500;
     EEPROM.put(soundThresholdAddress, maxSoundLevel);
   }
-  
+
+  clockFormat = EEPROM.read(clockFormatAddress);
+  if (clockFormat < 0 || clockFormat > 1){
+    EEPROM.write(clockFormatAddress, 0);
+  }
+
+  temperatureUnit = EEPROM.read(temperatureUnitAddress);
+  if (temperatureUnit < 0 || temperatureUnit > 1){
+    EEPROM.write(temperatureUnitAddress, 0);
+  }
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -126,6 +150,13 @@ void loop() {
       }
     } else if (number == 1) {
       // stopwatch
+
+      // TODO: show the count
+      // TODO: show play/pause + reset
+      // TODO: determine play/pause depending on whether it's on or not
+      // TODO: show arrows under the buttons for which one to press
+      // TODO: press to switch arrows
+      // TODO: hold press to do the action (play/reset)
       if (strcmp(screenDisplay, "Stopwatch") != 0){
         default_screen_setup(2);
         display.println(F("Stopwatch"));
@@ -134,12 +165,28 @@ void loop() {
       }
     } else if (number == 2) {
       // timer
-      if (strcmp(screenDisplay, "Timer") != 0){
-        default_screen_setup(2);
-        display.println(F("Timer"));
-        display.display();
-        strcpy(screenDisplay, "Timer");
+      if (timerStarted == true){
+        // TODO: timer countdown
+      } else {
+        // // dial to start the timer
+        // int dialMinutes = fmin(rotaryState / 20, 50) + 1;
+        // default_screen_setup(2);
+        // display.println(F("Timer for:"));
+        // display.print(dialMinutes);
+        // display.display();
+
+        // TODO: press button to rotate through the options: 1, 5, 10
+
+        // TODO: long button press to start the timer
+        
       }
+
+      // if (strcmp(screenDisplay, "Timer") != 0){
+      //   default_screen_setup(2);
+      //   display.println(F("Timer"));
+      //   display.display();
+      //   strcpy(screenDisplay, "Timer");
+      // }
     } else if (number == 3) {
       if (DHT.read() == DHT20_OK) {
         // if the reading is sucessful
@@ -192,6 +239,18 @@ void loop() {
       delay(100);
     } else if (number == 5){
       // settings
+      // TODO: show all settings: temperature unit, sound monitor limit, maybe clock format
+      // TODO: indent the setting it's referring to
+      // TODO: pressing button changes indent
+      // TODO: holding button goes into the setting page
+      // TODO: temperature unit screen:
+        // TODO: use slider to indent each option (celcius, fahrenheit), then button to save and go back to menu
+        // TODO: also show the temperature stuff properly on the temp screen
+      // TODO: sound monitor screen:
+        // TODO: use slider to indent each option, then button to save and go back to menu
+      // TODO: clock format screen:
+        // TODO: use the slider to indent each option (am/24 hours), then button to go back to menu
+        // TODO: show format on main page
       if (strcmp(screenDisplay, "Settings") != 0){
         default_screen_setup(2);
         display.println(F("Settings"));
@@ -199,6 +258,7 @@ void loop() {
         strcpy(screenDisplay, "Settings");
       }
     }
+    // TODO: check if the timer has finished and then buzz until button pressed
   } else {
     if (inLockdown == true){
       // calculating time left
