@@ -2,6 +2,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "DHT20.h"
+#include <EEPROM.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -10,6 +11,7 @@
 int rotaryPin = 0;
 int buttonPin = 6;
 DHT20 DHT;
+const int soundPin = A2;
 
 // outputs
 int buzzerPin = 5;
@@ -35,6 +37,11 @@ int incorrectAttempts = 0;
 bool inLockdown = false;
 unsigned long lockdownStartTime = 0;
 unsigned long lockdownFor = 0;
+
+// global variables for the sound level
+int maxSoundLevel;
+const int soundThresholdAddress = 0;
+int previousSoundLevel = -1000;
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -63,9 +70,18 @@ void setup() {
   // setting up inputs and outputs
   pinMode(rotaryPin, INPUT);
   pinMode(buttonPin, INPUT);
+  pinMode(soundPin, INPUT);
   pinMode(buzzerPin, OUTPUT);
   pinMode(ledPin, OUTPUT);
   Serial.begin(9600);
+
+  // gets sound level from EEPROM
+  EEPROM.get(soundThresholdAddress, maxSoundLevel);
+
+  if (maxSoundLevel < 0 || maxSoundLevel > 1023) {
+    maxSoundLevel = 500;
+    EEPROM.put(soundThresholdAddress, maxSoundLevel);
+  }
   
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -84,7 +100,7 @@ void loop() {
     // main program once logged in
     int rotaryState = analogRead(rotaryPin);
 
-    int number = fmin(rotaryState / 150, 6);
+    int number = fmin(rotaryState / 200, 5);
     if (number == 0){
       // clock face
 
@@ -151,26 +167,30 @@ void loop() {
           strcpy(screenDisplay, "Temperature");
         }
       }
-
       delay(100);
     }
-    else if (number == 4) {
-      // snake
-      if (strcmp(screenDisplay, "Snake") != 0){
-        default_screen_setup(2);
-        display.println(F("Snake"));
-        display.display();
-        strcpy(screenDisplay, "Snake");
-      }
-    } else if (number == 5){
+    else if (number == 4){
       // sound monitor
-      if (strcmp(screenDisplay, "Sound Monitor") != 0){
+      int soundLevel = analogRead(soundPin);
+
+      if (soundLevel != previousSoundLevel ||
+          strcmp(screenDisplay, "Sound") != 0) {
+        // if the sound level is different from before
         default_screen_setup(2);
-        display.println(F("Sound Monitor"));
+        display.print(F("Sound Level: "));
+        display.println(soundLevel);
+
+        if (soundLevel > maxSoundLevel){
+          display.println("Stop shouting!");
+        }
+
         display.display();
-        strcpy(screenDisplay, "Sound Monitor");
+
+        previousSoundLevel = soundLevel;
+        strcpy(screenDisplay, "Sound");
       }
-    } else if (number == 6){
+      delay(100);
+    } else if (number == 5){
       // settings
       if (strcmp(screenDisplay, "Settings") != 0){
         default_screen_setup(2);
@@ -248,10 +268,6 @@ void loop() {
             // if correct password
             loggedIn = true;
             incorrectAttempts = 0;
-
-            // default_screen_setup(2);
-            // display.println(F("Welcome"));
-            // display.display();
           } else {
             // if password is incorrect
             for (int i = 0; i < 4; i++) digits[i] = -1;
