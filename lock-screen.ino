@@ -31,15 +31,14 @@ int digits[4] = {-1, -1, -1, -1};
 char screenDisplay[50] = "_ _ _ _ ";
 int previousTemperature = -1000;
 int previousHumidity = -1000;
+int previousSoundLevel = -1000;
+char previousClockTime[8] = ""; 
 
 // lockdown global variables
 int incorrectAttempts = 0;
 bool inLockdown = false;
 unsigned long lockdownStartTime = 0;
 unsigned long lockdownFor = 0;
-
-// global variables for the sound level
-int previousSoundLevel = -1000;
 
 // global variables for EEPROM
 int maxSoundLevel;
@@ -135,18 +134,40 @@ void loop() {
       hours %= 24;
 
       // generates time display screen
-      char timeDisplay[6];
-      snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d", hours, minutes);
-      char fullDisplay[20];
-      snprintf(fullDisplay, sizeof(fullDisplay), "Hi! %s", timeDisplay);
+      char timeDisplay[8];
+      Serial.println(clockFormat);
+      if (clockFormat == 0){
+        snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d", hours, minutes);
+      } else {
+        char ending[2] = {'|', 'm'};
+        if (hours == 0){
+          hours = 12;
+          ending[0] = 'a';
+        } else if (hours > 0 && hours < 12){
+          ending[0] = 'a';
+        } else {
+          ending[0] = 'p';
+          if (hours != 12){
+            hours = hours % 12;
+          } else {
+          }
+        }
+        snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d%s", hours, minutes, ending);
 
-      if (strcmp(fullDisplay, screenDisplay) != 0){
+        delay(100);
+      }
+      // char fullDisplay[20];
+      // snprintf(fullDisplay, sizeof(fullDisplay), "Hi! %s", timeDisplay);
+
+      if (strcmp(timeDisplay, previousClockTime) ||
+          strcmp(screenDisplay, "Clock") != 0) {
         // shows new time if it has changed since last display
         default_screen_setup(3);
         display.println("Hi!");
         display.print(timeDisplay);
         display.display();
-        strcpy(screenDisplay, fullDisplay);
+        strcpy(previousClockTime, timeDisplay);
+        strcpy(screenDisplay, "Clock");
       }
     } else if (number == 1) {
       // stopwatch
@@ -191,6 +212,9 @@ void loop() {
       if (DHT.read() == DHT20_OK) {
         // if the reading is sucessful
         float temperature = DHT.getTemperature();
+        if (temperatureUnit == 1){
+          temperature = (temperature * (9.0/5.0)) + 32;
+        }
         float humidity = DHT.getHumidity();
 
         if (temperature != previousTemperature ||
@@ -201,7 +225,11 @@ void loop() {
           default_screen_setup(2);
           display.print(F("Temperature: "));
           display.print(temperature);
-          display.println(F(" C"));
+          if (temperatureUnit == 0){
+            display.println(F(" C"));
+          } else {
+            display.println(F(" F"));
+          }
 
           display.print(F("Humidity: "));
           display.print(humidity);
@@ -245,7 +273,6 @@ void loop() {
       // TODO: holding button goes into the setting page
       // TODO: temperature unit screen:
         // TODO: use slider to indent each option (celcius, fahrenheit), then button to save and go back to menu
-        // TODO: also show the temperature stuff properly on the temp screen
       // TODO: sound monitor screen:
         // TODO: use slider to indent each option, then button to save and go back to menu
       // TODO: clock format screen:
