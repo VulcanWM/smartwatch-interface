@@ -21,6 +21,7 @@ int ledPin = 4;
 bool loggedIn = false;
 int buttonState = LOW;
 bool heldDown = false; // to prevent it acting multiple times on the same button press
+unsigned long buttonHeldDownAt = -1000; // to differentiate between short and long press
 
 // initialising lock screen
 char password[5] = "0000";
@@ -28,7 +29,7 @@ int currentIndex = 0;
 int digits[4] = {-1, -1, -1, -1};
 
 // to prevent it redisplaying content multiple times
-char screenDisplay[50] = "_ _ _ _ ";
+char screenDisplay[20] = "_ _ _ _ ";
 int previousTemperature = -1000;
 int previousHumidity = -1000;
 int previousSoundLevel = -1000;
@@ -48,10 +49,11 @@ const int clockFormatAddress = 1;
 int temperatureUnit; // 0 will be celsius; 1 will be fahrenheit
 const int temperatureUnitAddress = 2;
 
-
 // global variables for stopwatch
-unsigned long timeSinceStart = 0;
+unsigned long timeOfStart = 0;
+unsigned long differenceAtStop = 0;
 bool stopwatchStarted = false;
+int stopwatchMenuItem = 0;
 
 // global variables for timer
 int timerMinutes = 0;
@@ -135,7 +137,7 @@ void loop() {
 
       // generates time display screen
       char timeDisplay[8];
-      Serial.println(clockFormat);
+      // convert to clock format depending on user settings
       if (clockFormat == 0){
         snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d", hours, minutes);
       } else {
@@ -156,8 +158,6 @@ void loop() {
 
         delay(100);
       }
-      // char fullDisplay[20];
-      // snprintf(fullDisplay, sizeof(fullDisplay), "Hi! %s", timeDisplay);
 
       if (strcmp(timeDisplay, previousClockTime) ||
           strcmp(screenDisplay, "Clock") != 0) {
@@ -172,17 +172,74 @@ void loop() {
     } else if (number == 1) {
       // stopwatch
 
-      // TODO: show the count
-      // TODO: show play/pause + reset
-      // TODO: determine play/pause depending on whether it's on or not
-      // TODO: show arrows under the buttons for which one to press
-      // TODO: press to switch arrows
-      // TODO: hold press to do the action (play/reset)
-      if (strcmp(screenDisplay, "Stopwatch") != 0){
-        default_screen_setup(2);
-        display.println(F("Stopwatch"));
-        display.display();
-        strcpy(screenDisplay, "Stopwatch");
+      // TODO: only change text when buttons pressed or time changed
+
+      default_screen_setup(2);
+      display.println(F("Stopwatch"));
+
+      // generate the time to display
+      int minutes;
+      int seconds;
+      unsigned long totalSeconds;
+
+      char stopwatchTime[10];
+
+      if (stopwatchStarted == true){
+        totalSeconds = (millis() - timeOfStart) / 1000;
+      } else {
+        totalSeconds = differenceAtStop / 1000;
+      }
+
+      minutes = totalSeconds / 60;
+      seconds = totalSeconds - (minutes * 60);
+
+      snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
+
+      display.println(stopwatchTime);
+
+      // display the 2 action items
+      if (stopwatchMenuItem == 0){
+        display.print("> ");
+      } else {
+        display.print("  ");
+      }
+      if (stopwatchStarted == true){
+        display.println("Stop");
+      } else {
+        display.println("Start");
+      }
+      if (stopwatchMenuItem == 1){
+        display.print("> ");
+      } else {
+        display.print("  ");
+      }
+      display.println("Reset");
+      display.display();
+
+      // use the button to do actions
+      buttonState = digitalRead(buttonPin);
+      if (buttonState == HIGH && heldDown == false){
+        heldDown = true;
+        buttonHeldDownAt = millis();
+      }
+      if (buttonState == LOW && heldDown == true){
+        if ((millis() - buttonHeldDownAt) / 1000 > 0){
+          if (stopwatchMenuItem == 0){
+            if (stopwatchStarted == true){
+              differenceAtStop = millis() - timeOfStart;
+              stopwatchStarted = false;
+            } else {
+              timeOfStart = millis() - differenceAtStop;
+              stopwatchStarted = true;
+            }
+          } else {
+            stopwatchStarted = false;
+            differenceAtStop = 0;
+          }
+        } else {
+          stopwatchMenuItem = 1 - stopwatchMenuItem;
+        }
+        heldDown = false;
       }
     } else if (number == 2) {
       // timer
@@ -212,10 +269,12 @@ void loop() {
       if (DHT.read() == DHT20_OK) {
         // if the reading is sucessful
         float temperature = DHT.getTemperature();
+        float humidity = DHT.getHumidity();
+
+        // convert to fahrenheit if needed
         if (temperatureUnit == 1){
           temperature = (temperature * (9.0/5.0)) + 32;
         }
-        float humidity = DHT.getHumidity();
 
         if (temperature != previousTemperature ||
           humidity != previousHumidity ||
@@ -277,7 +336,6 @@ void loop() {
         // TODO: use slider to indent each option, then button to save and go back to menu
       // TODO: clock format screen:
         // TODO: use the slider to indent each option (am/24 hours), then button to go back to menu
-        // TODO: show format on main page
       if (strcmp(screenDisplay, "Settings") != 0){
         default_screen_setup(2);
         display.println(F("Settings"));
@@ -355,6 +413,7 @@ void loop() {
             // if correct password
             loggedIn = true;
             incorrectAttempts = 0;
+            heldDown = false;
           } else {
             // if password is incorrect
             for (int i = 0; i < 4; i++) digits[i] = -1;
