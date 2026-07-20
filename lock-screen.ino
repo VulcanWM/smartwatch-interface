@@ -24,7 +24,7 @@ bool heldDown = false; // to prevent it acting multiple times on the same button
 unsigned long buttonHeldDownAt = -1000; // to differentiate between short and long press
 
 // initialising lock screen
-char password[5] = "9999";
+char password[5] = "0000";
 int currentIndex = 0;
 int digits[4] = {-1, -1, -1, -1};
 
@@ -59,7 +59,7 @@ int stopwatchMenuItem = 0;
 bool timerStarted = false;
 int timerMenuItem = 0;
 unsigned long timerTimeOfStart = 0;
-unsigned long timerTimeLeftAtStop = 0;
+unsigned long timerTimeLeftAtStop = 0; // in seconds
 int timerDuration = 0; // in seconds
 
 // global variables for settings
@@ -269,7 +269,6 @@ void loop() {
 
         display.println(stopwatchTime);
 
-        // TODO: timer countdown
         if (timerMenuItem == 0){
           display.print("> ");
         } else {
@@ -283,15 +282,39 @@ void loop() {
         }
         display.println("Cancel");
       } else {
-        display.println(F("1 5 10"));
-        int spaces = timerMenuItem * 2;
-        for (int i = 0; i < spaces; i++){
-          display.print(F(" "));
+        if (timerTimeLeftAtStop == 0){
+          display.println(F("1 5 10"));
+          int spaces = timerMenuItem * 2;
+          for (int i = 0; i < spaces; i++){
+            display.print(F(" "));
+          }
+          display.println("^");
+        } else {
+          int minutes;
+          int seconds;
+
+          char stopwatchTime[10];
+
+          minutes = timerTimeLeftAtStop / 60;
+          seconds = timerTimeLeftAtStop - (minutes * 60);
+
+          snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
+
+          display.println(stopwatchTime);
+
+          if (timerMenuItem == 0){
+            display.print("> ");
+          } else {
+            display.print("  ");
+          }
+          display.println("Start");
+          if (timerMenuItem == 1){
+            display.print("> ");
+          } else {
+            display.print("  ");
+          }
+          display.println("Cancel");
         }
-        display.println("^");
-        // TODO: long button press to start the timer
-        // TODO: if already started long button press to either stop or cancel
-        
       }
       display.display();
 
@@ -303,27 +326,44 @@ void loop() {
       if (buttonState == LOW && heldDown == true){
         if ((millis() - buttonHeldDownAt) / 1000 > 0){
           if (timerStarted == false){
-            // start timer
-            timerStarted = true;
-            timerTimeOfStart = millis();
-            if (timerMenuItem == 0){
-              timerDuration = 60;
-            } else if (timerMenuItem == 1){
-              timerDuration = 300;
+            if (timerTimeLeftAtStop == 0){
+              // start timer
+              timerStarted = true;
+              timerTimeOfStart = millis();
+              if (timerMenuItem == 0){
+                timerDuration = 60;
+              } else if (timerMenuItem == 1){
+                timerDuration = 300;
+              } else {
+                timerDuration = 600;
+              }
+              timerMenuItem = 0;
             } else {
-              timerDuration = 600;
+              if (timerMenuItem == 0){
+                timerDuration = timerTimeLeftAtStop;
+                timerTimeOfStart = millis();
+                timerStarted = true;
+              } else {
+                timerStarted = false;
+                timerTimeLeftAtStop = 0;
+              }
             }
           } else {
             if (timerMenuItem == 0){
-              // stop
-            } else {
-              // cancel
+              timerTimeLeftAtStop = timerDuration - ((millis() - timerTimeOfStart) / 1000);
               timerStarted = false;
+            } else {
+              timerStarted = false;
+              timerTimeLeftAtStop = 0;
             }
           }
         } else {
           if (timerStarted == false){
-            timerMenuItem = (timerMenuItem + 1) % 3;
+            if (timerTimeLeftAtStop == 0){
+              timerMenuItem = (timerMenuItem + 1) % 3;
+            } else {
+              timerMenuItem = 1 - timerMenuItem;
+            }
           } else {
             timerMenuItem = 1 - timerMenuItem;
           }
@@ -509,16 +549,19 @@ void loop() {
         }
         heldDown = false;
       }
-
-      // TODO: holding button goes into the setting page
-      // TODO: temperature unit screen:
-        // TODO: use slider to indent each option (celcius, fahrenheit), then button to save and go back to menu
-      // TODO: sound monitor screen:
-        // TODO: use slider to indent each option, then button to save and go back to menu
-      // TODO: clock format screen:
-        // TODO: use the slider to indent each option (am/24 hours), then button to go back to menu
     }
-    // TODO: check if the timer has finished and then buzz until button pressed
+
+    if (timerStarted == true){
+      unsigned long totalSeconds = timerDuration - ((millis() - timerTimeOfStart) / 1000);
+      if (totalSeconds <= 0){
+        timerStarted = false;
+        timerTimeOfStart = 0;
+        timerTimeLeftAtStop = 0;
+        timerDuration = 0; 
+        buzz_multiple_times(5, 300, 500, 100);
+
+      }
+    }
   } else {
     if (inLockdown == true){
       // calculating time left
