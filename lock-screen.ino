@@ -24,7 +24,7 @@ bool heldDown = false; // to prevent it acting multiple times on the same button
 unsigned long buttonHeldDownAt = -1000; // to differentiate between short and long press
 
 // initialising lock screen
-char password[5] = "0000";
+char password[5] = "9999";
 int currentIndex = 0;
 int digits[4] = {-1, -1, -1, -1};
 
@@ -56,8 +56,16 @@ bool stopwatchStarted = false;
 int stopwatchMenuItem = 0;
 
 // global variables for timer
-int timerMinutes = 0;
 bool timerStarted = false;
+int timerMenuItem = 0;
+unsigned long timerTimeOfStart = 0;
+unsigned long timerTimeLeftAtStop = 0;
+int timerDuration = 0; // in seconds
+
+// global variables for settings
+bool inSetting = false;
+int settingMenuItem = 0;
+int inSettingMenuItem = 0;
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -243,28 +251,85 @@ void loop() {
       }
     } else if (number == 2) {
       // timer
+
+      default_screen_setup(2);
+      display.println(F("Timer"));
       if (timerStarted == true){
+        // generate the time to display
+        int minutes;
+        int seconds;
+        unsigned long totalSeconds = timerDuration - ((millis() - timerTimeOfStart) / 1000);
+
+        char stopwatchTime[10];
+
+        minutes = totalSeconds / 60;
+        seconds = totalSeconds - (minutes * 60);
+
+        snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
+
+        display.println(stopwatchTime);
+
         // TODO: timer countdown
+        if (timerMenuItem == 0){
+          display.print("> ");
+        } else {
+          display.print("  ");
+        }
+        display.println("Stop");
+        if (timerMenuItem == 1){
+          display.print("> ");
+        } else {
+          display.print("  ");
+        }
+        display.println("Cancel");
       } else {
-        // // dial to start the timer
-        // int dialMinutes = fmin(rotaryState / 20, 50) + 1;
-        // default_screen_setup(2);
-        // display.println(F("Timer for:"));
-        // display.print(dialMinutes);
-        // display.display();
-
-        // TODO: press button to rotate through the options: 1, 5, 10
-
+        display.println(F("1 5 10"));
+        int spaces = timerMenuItem * 2;
+        for (int i = 0; i < spaces; i++){
+          display.print(F(" "));
+        }
+        display.println("^");
         // TODO: long button press to start the timer
+        // TODO: if already started long button press to either stop or cancel
         
       }
+      display.display();
 
-      // if (strcmp(screenDisplay, "Timer") != 0){
-      //   default_screen_setup(2);
-      //   display.println(F("Timer"));
-      //   display.display();
-      //   strcpy(screenDisplay, "Timer");
-      // }
+      buttonState = digitalRead(buttonPin);
+      if (buttonState == HIGH && heldDown == false){
+        heldDown = true;
+        buttonHeldDownAt = millis();
+      }
+      if (buttonState == LOW && heldDown == true){
+        if ((millis() - buttonHeldDownAt) / 1000 > 0){
+          if (timerStarted == false){
+            // start timer
+            timerStarted = true;
+            timerTimeOfStart = millis();
+            if (timerMenuItem == 0){
+              timerDuration = 60;
+            } else if (timerMenuItem == 1){
+              timerDuration = 300;
+            } else {
+              timerDuration = 600;
+            }
+          } else {
+            if (timerMenuItem == 0){
+              // stop
+            } else {
+              // cancel
+              timerStarted = false;
+            }
+          }
+        } else {
+          if (timerStarted == false){
+            timerMenuItem = (timerMenuItem + 1) % 3;
+          } else {
+            timerMenuItem = 1 - timerMenuItem;
+          }
+        }
+        heldDown = false;
+      }
     } else if (number == 3) {
       if (DHT.read() == DHT20_OK) {
         // if the reading is sucessful
@@ -326,9 +391,125 @@ void loop() {
       delay(100);
     } else if (number == 5){
       // settings
-      // TODO: show all settings: temperature unit, sound monitor limit, maybe clock format
-      // TODO: indent the setting it's referring to
-      // TODO: pressing button changes indent
+      default_screen_setup(2);
+      if (inSetting == false){
+        display.println(F("Settings"));
+        if (settingMenuItem == 0){
+          display.print(F("> "));
+        } else {
+          display.print(F("  "));
+        }
+        display.println(F("Temp"));
+        if (settingMenuItem == 1){
+          display.print(F("> "));
+        } else {
+          display.print(F("  "));
+        }
+        display.println(F("Sound"));
+        if (settingMenuItem == 2){
+          display.print(F("> "));
+        } else {
+          display.print(F("  "));
+        }
+        display.println(F("Time"));
+        // show the 3 menu items
+      } else {
+        if (settingMenuItem == 0){
+          display.println(F("Temp Unit"));
+          if (inSettingMenuItem == 0){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("C"));
+          if (inSettingMenuItem == 1){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("F"));
+        } else if (settingMenuItem == 1){
+          display.println(F("Sound Lim"));
+          if (inSettingMenuItem == 300){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("300"));
+          if (inSettingMenuItem == 500){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("500"));
+          if (inSettingMenuItem == 700){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("700"));
+        } else {
+          display.println(F("Time Form"));
+          if (inSettingMenuItem == 0){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("24 hour"));
+          if (inSettingMenuItem == 1){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("12 hour"));
+        }
+      }
+      display.display();
+
+      buttonState = digitalRead(buttonPin);
+      if (buttonState == HIGH && heldDown == false){
+        heldDown = true;
+        buttonHeldDownAt = millis();
+      }
+      if (buttonState == LOW && heldDown == true){
+        if ((millis() - buttonHeldDownAt) / 1000 > 0){
+          if (inSetting == false){
+            inSetting = true;
+          } else {
+            if (settingMenuItem == 0){
+              EEPROM.write(temperatureUnitAddress, inSettingMenuItem);
+              temperatureUnit = settingMenuItem;
+            } else if (settingMenuItem == 1){
+              EEPROM.put(soundThresholdAddress, inSettingMenuItem);
+              maxSoundLevel = inSettingMenuItem;
+            } else {
+              EEPROM.write(clockFormatAddress, inSettingMenuItem);
+              clockFormat = inSettingMenuItem;
+            }
+            inSetting = false;
+          }
+        } else {
+          if (inSetting == false){
+            settingMenuItem = (settingMenuItem + 1) % 3;
+          } else {
+            if (settingMenuItem == 0 || settingMenuItem == 2){
+              inSettingMenuItem = 1 - inSettingMenuItem;
+            } else {
+              if (inSettingMenuItem == 300){
+                inSettingMenuItem = 500;
+              }
+              if (inSettingMenuItem == 500){
+                inSettingMenuItem = 700;
+              }
+              if (inSettingMenuItem == 700){
+                inSettingMenuItem = 300;
+              }
+            }
+          }
+        }
+        heldDown = false;
+      }
+
       // TODO: holding button goes into the setting page
       // TODO: temperature unit screen:
         // TODO: use slider to indent each option (celcius, fahrenheit), then button to save and go back to menu
@@ -336,12 +517,6 @@ void loop() {
         // TODO: use slider to indent each option, then button to save and go back to menu
       // TODO: clock format screen:
         // TODO: use the slider to indent each option (am/24 hours), then button to go back to menu
-      if (strcmp(screenDisplay, "Settings") != 0){
-        default_screen_setup(2);
-        display.println(F("Settings"));
-        display.display();
-        strcpy(screenDisplay, "Settings");
-      }
     }
     // TODO: check if the timer has finished and then buzz until button pressed
   } else {
