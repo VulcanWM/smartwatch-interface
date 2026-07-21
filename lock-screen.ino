@@ -164,6 +164,7 @@ void loop() {
       if (clockFormat == 0){
         snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d", hours, minutes);
       } else {
+        // decides whether am or pm
         char ending[3] = "am";
         if (hours == 0){
           hours = 12;
@@ -186,14 +187,16 @@ void loop() {
         display.println(F("Hi!"));
         display.print(timeDisplay);
         display.display();
+        
+        // sets previous variables so it can be compared on next loop
         strcpy(previousClockTime, timeDisplay);
         strcpy(screenDisplay, "Clock");
       }
     } else if (number == 1) {
       // stopwatch
 
+      // calculates number of seconds to display
       unsigned long totalSeconds;
-
       if (stopwatchStarted) {
         totalSeconds = (millis() - timeOfStart) / 1000;
       } else {
@@ -206,7 +209,7 @@ void loop() {
         stopwatchMenuItem != previousStopwatchMenuItem ||
         stopwatchStarted != previousStopwatchStarted
       ) {
-
+        // displays only if something has changed
         default_screen_setup(2);
         display.println(F("Stopwatch"));
 
@@ -220,10 +223,9 @@ void loop() {
         seconds = totalSeconds - (minutes * 60);
 
         snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
-
         display.println(stopwatchTime);
 
-        // display the 2 action items
+        // displays the 2 action items with indents
         if (stopwatchMenuItem == 0){
           display.print(F("> "));
         } else {
@@ -242,6 +244,7 @@ void loop() {
         display.println(F("Reset"));
         display.display();
 
+        // sets previous variables so it can be compared on next loop
         previousStopwatchSecond = totalSeconds;
         previousStopwatchMenuItem = stopwatchMenuItem;
         previousStopwatchStarted = stopwatchStarted;
@@ -251,24 +254,30 @@ void loop() {
       // use the button to do actions
       buttonState = digitalRead(buttonPin);
       if (buttonState == HIGH && heldDown == false){
+        // if button has just been held down
         heldDown = true;
         buttonHeldDownAt = millis();
       }
       if (buttonState == LOW && heldDown == true){
+        // if button just let go
         if ((millis() - buttonHeldDownAt) / 1000 > 0){
           if (stopwatchMenuItem == 0){
             if (stopwatchStarted == true){
+              // stops the stopwatch
               differenceAtStop = millis() - timeOfStart;
               stopwatchStarted = false;
             } else {
+              // starts the stopwatch
               timeOfStart = millis() - differenceAtStop;
               stopwatchStarted = true;
             }
           } else {
+            // resets the stopwatch
             stopwatchStarted = false;
             differenceAtStop = 0;
           }
         } else {
+          // alternates the menu option
           stopwatchMenuItem = 1 - stopwatchMenuItem;
         }
         heldDown = false;
@@ -276,6 +285,7 @@ void loop() {
     } else if (number == 2) {
       // timer
 
+      // generates the number of seconds left
       unsigned long timerDisplaySeconds;
 
       if (timerStarted) {
@@ -299,10 +309,11 @@ void loop() {
         timerTimeLeftAtStop != previousTimerTimeLeftAtStop;
 
       if (timerChanged) {
+        // if something has changed since last display
         default_screen_setup(2);
         display.println(F("Timer"));
         if (timerStarted == true){
-          // generate the time to display
+          // generate the time left to display
           int minutes;
           int seconds;
           char stopwatchTime[10];
@@ -314,6 +325,7 @@ void loop() {
 
           display.println(stopwatchTime);
 
+          // shows the menu options and indents if toggled
           if (timerMenuItem == 0){
             display.print(F("> "));
           } else {
@@ -328,6 +340,7 @@ void loop() {
           display.println(F("Cancel"));
         } else {
           if (timerTimeLeftAtStop == 0){
+            // if a timer hasn't been started yet, show all 3 time options
             display.println(F("1 5 10"));
             int spaces = timerMenuItem * 2;
             for (int i = 0; i < spaces; i++){
@@ -335,6 +348,7 @@ void loop() {
             }
             display.println(F("^"));
           } else {
+            // generates time left to display
             int minutes;
             int seconds;
 
@@ -347,6 +361,7 @@ void loop() {
 
             display.println(stopwatchTime);
 
+            // shows the menu options and indents if toggled
             if (timerMenuItem == 0){
               display.print(F("> "));
             } else {
@@ -363,6 +378,7 @@ void loop() {
         }
         display.display();
 
+        // sets previous variables so it can be compared on next loop
         previousTimerSeconds = timerDisplaySeconds;
         previousTimerMenuItem = timerMenuItem;
         previousTimerStarted = timerStarted;
@@ -372,10 +388,12 @@ void loop() {
 
       buttonState = digitalRead(buttonPin);
       if (buttonState == HIGH && heldDown == false){
+        // if the button has just been held down
         heldDown = true;
         buttonHeldDownAt = millis();
       }
       if (buttonState == LOW && heldDown == true){
+        // if the button has just been let go
         if ((millis() - buttonHeldDownAt) / 1000 > 0){
           if (timerStarted == false){
             if (timerTimeLeftAtStop == 0){
@@ -392,19 +410,23 @@ void loop() {
               timerMenuItem = 0;
             } else {
               if (timerMenuItem == 0){
+                // starts the timer again
                 timerDuration = timerTimeLeftAtStop;
                 timerTimeOfStart = millis();
                 timerStarted = true;
               } else {
+                // cancels the timer
                 timerStarted = false;
                 timerTimeLeftAtStop = 0;
               }
             }
           } else {
             if (timerMenuItem == 0){
+              // stops the timer
               timerTimeLeftAtStop = timerDuration - ((millis() - timerTimeOfStart) / 1000);
               timerStarted = false;
             } else {
+              // cancels the timer
               timerStarted = false;
               timerTimeLeftAtStop = 0;
             }
@@ -412,11 +434,14 @@ void loop() {
         } else {
           if (timerStarted == false){
             if (timerTimeLeftAtStop == 0){
+              // alternates the options from 0-2 (the times)
               timerMenuItem = (timerMenuItem + 1) % 3;
             } else {
+              // alternates the options from 0-1 (start/cancel)
               timerMenuItem = 1 - timerMenuItem;
             }
           } else {
+            // alternates the options from 0-1 (stop/cancel)
             timerMenuItem = 1 - timerMenuItem;
           }
         }
@@ -453,6 +478,7 @@ void loop() {
 
           display.display();
 
+          // sets previous variables so it can be compared on next loop
           previousTemperature = temperature;
           previousHumidity = humidity;
           strcpy(screenDisplay, "Temperature");
@@ -476,6 +502,7 @@ void loop() {
 
         display.display();
 
+        // sets previous variables so it can be compared on next loop
         previousSoundLevel = soundLevel;
         strcpy(screenDisplay, "Sound");
       }
@@ -489,8 +516,10 @@ void loop() {
         inSettingMenuItem != previousInSettingMenuItem;
 
       if (settingsChanged) {
+        // if the diplay from last render is outdated (menu option has been changed)
         default_screen_setup(2);
         if (inSetting == false){
+          // shows all the setting options
           display.println(F("Settings"));
           if (settingMenuItem == 0){
             display.print(F("> "));
@@ -512,6 +541,7 @@ void loop() {
           display.println(F("Time"));
         } else {
           if (settingMenuItem == 0){
+            // shows the options for the temperature unit setting (with indents)
             display.println(F("Temp Unit"));
             if (inSettingMenuItem == 0){
               display.print(F("> "));
@@ -526,6 +556,7 @@ void loop() {
             }
             display.println(F("F"));
           } else if (settingMenuItem == 1){
+            // shows the options for the sound limit setting (with indents)
             display.println(F("Sound Lim"));
             if (inSettingMenuItem == 300){
               display.print(F("> "));
@@ -546,6 +577,7 @@ void loop() {
             }
             display.println(F("700"));
           } else {
+            // shows the options for the clock format (with indents)
             display.println(F("Time Form"));
             if (inSettingMenuItem == 0){
               display.print(F("> "));
@@ -562,6 +594,8 @@ void loop() {
           }
         }
         display.display();
+
+        // sets previous variables so it can be compared on next loop
         previousInSetting = inSetting;
         previousSettingMenuItem = settingMenuItem;
         previousInSettingMenuItem = inSettingMenuItem;
@@ -570,12 +604,15 @@ void loop() {
 
       buttonState = digitalRead(buttonPin);
       if (buttonState == HIGH && heldDown == false){
+        // if button has just been held down
         heldDown = true;
         buttonHeldDownAt = millis();
       }
       if (buttonState == LOW && heldDown == true){
+        // if button has just been let go
         if ((millis() - buttonHeldDownAt) / 1000 > 0){
           if (inSetting == false){
+            // goes into the specific setting menu (eg. main setting menu to temperature unit options)
             if (settingMenuItem == 0){
               inSettingMenuItem = temperatureUnit;
             }
@@ -587,6 +624,7 @@ void loop() {
             }
             inSetting = true;
           } else {
+            // saves the value toggled into EEPROM and the global variable storing it
             if (settingMenuItem == 0){
               EEPROM.write(temperatureUnitAddress, inSettingMenuItem);
               temperatureUnit = inSettingMenuItem;
@@ -601,11 +639,14 @@ void loop() {
           }
         } else {
           if (inSetting == false){
+            // alternates between the 3 menu options
             settingMenuItem = (settingMenuItem + 1) % 3;
           } else {
             if (settingMenuItem == 0 || settingMenuItem == 2){
+              // alternates between the 2 options
               inSettingMenuItem = 1 - inSettingMenuItem;
             } else {
+              // alternates between 300, 500 and 700
               if (inSettingMenuItem == 300){
                 inSettingMenuItem = 500;
               }
@@ -625,6 +666,7 @@ void loop() {
     if (timerStarted == true){
       unsigned long totalSeconds = timerDuration - ((millis() - timerTimeOfStart) / 1000);
       if (totalSeconds <= 0){
+        // if a timer has running and the time is complete
         timerStarted = false;
         timerTimeOfStart = 0;
         timerTimeLeftAtStop = 0;
