@@ -30,8 +30,8 @@ int digits[4] = {-1, -1, -1, -1};
 
 // to prevent it redisplaying content multiple times
 char screenDisplay[20] = "_ _ _ _ ";
-int previousTemperature = -1000;
-int previousHumidity = -1000;
+float previousTemperature = -1000.0;
+float previousHumidity = -1000.0;
 int previousSoundLevel = -1000;
 char previousClockTime[8] = ""; 
 
@@ -42,12 +42,12 @@ unsigned long lockdownStartTime = 0;
 unsigned long lockdownFor = 0;
 
 // global variables for EEPROM
-int maxSoundLevel;
+unsigned long maxSoundLevel;
 const int soundThresholdAddress = 0;
 int clockFormat; // 0 will be 24 hour; 1 will be 12pm
-const int clockFormatAddress = 1;
+const int clockFormatAddress = 20;
 int temperatureUnit; // 0 will be celsius; 1 will be fahrenheit
-const int temperatureUnitAddress = 2;
+const int temperatureUnitAddress = 40;
 
 // global variables for stopwatch
 unsigned long timeOfStart = 0;
@@ -109,12 +109,14 @@ void setup() {
 
   clockFormat = EEPROM.read(clockFormatAddress);
   if (clockFormat < 0 || clockFormat > 1){
-    EEPROM.write(clockFormatAddress, 0);
+    clockFormat = 0;
+    EEPROM.write(clockFormatAddress, clockFormat);
   }
 
   temperatureUnit = EEPROM.read(temperatureUnitAddress);
   if (temperatureUnit < 0 || temperatureUnit > 1){
-    EEPROM.write(temperatureUnitAddress, 0);
+    temperatureUnit = 0;
+    EEPROM.write(temperatureUnitAddress, temperatureUnit);
   }
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -149,12 +151,11 @@ void loop() {
       if (clockFormat == 0){
         snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d", hours, minutes);
       } else {
-        char ending[2] = {'|', 'm'};
+        char ending[3] = "am";
         if (hours == 0){
           hours = 12;
-          ending[0] = 'a';
         } else if (hours > 0 && hours < 12){
-          ending[0] = 'a';
+          // nothing
         } else {
           ending[0] = 'p';
           if (hours != 12){
@@ -171,7 +172,7 @@ void loop() {
           strcmp(screenDisplay, "Clock") != 0) {
         // shows new time if it has changed since last display
         default_screen_setup(3);
-        display.println("Hi!");
+        display.println(F("Hi!"));
         display.print(timeDisplay);
         display.display();
         strcpy(previousClockTime, timeDisplay);
@@ -207,21 +208,21 @@ void loop() {
 
       // display the 2 action items
       if (stopwatchMenuItem == 0){
-        display.print("> ");
+        display.print(F("> "));
       } else {
-        display.print("  ");
+        display.print(F("  "));
       }
       if (stopwatchStarted == true){
-        display.println("Stop");
+        display.println(F("Stop"));
       } else {
-        display.println("Start");
+        display.println(F("Start"));
       }
       if (stopwatchMenuItem == 1){
-        display.print("> ");
+        display.print(F("> "));
       } else {
-        display.print("  ");
+        display.print(F("  "));
       }
-      display.println("Reset");
+      display.println(F("Reset"));
       display.display();
 
       // use the button to do actions
@@ -270,17 +271,17 @@ void loop() {
         display.println(stopwatchTime);
 
         if (timerMenuItem == 0){
-          display.print("> ");
+          display.print(F("> "));
         } else {
-          display.print("  ");
+          display.print(F("  "));
         }
-        display.println("Stop");
+        display.println(F("Stop"));
         if (timerMenuItem == 1){
-          display.print("> ");
+          display.print(F("> "));
         } else {
-          display.print("  ");
+          display.print(F("  "));
         }
-        display.println("Cancel");
+        display.println(F("Cancel"));
       } else {
         if (timerTimeLeftAtStop == 0){
           display.println(F("1 5 10"));
@@ -288,7 +289,7 @@ void loop() {
           for (int i = 0; i < spaces; i++){
             display.print(F(" "));
           }
-          display.println("^");
+          display.println(F("^"));
         } else {
           int minutes;
           int seconds;
@@ -303,17 +304,17 @@ void loop() {
           display.println(stopwatchTime);
 
           if (timerMenuItem == 0){
-            display.print("> ");
+            display.print(F("> "));
           } else {
-            display.print("  ");
+            display.print(F("  "));
           }
-          display.println("Start");
+          display.println(F("Start"));
           if (timerMenuItem == 1){
-            display.print("> ");
+            display.print(F("> "));
           } else {
-            display.print("  ");
+            display.print(F("  "));
           }
-          display.println("Cancel");
+          display.println(F("Cancel"));
         }
       }
       display.display();
@@ -381,13 +382,13 @@ void loop() {
           temperature = (temperature * (9.0/5.0)) + 32;
         }
 
-        if (temperature != previousTemperature ||
-          humidity != previousHumidity ||
+        if (fabs(temperature - previousTemperature) > 0.1 ||
+          fabs(humidity - previousHumidity) > 0.1 ||
           strcmp(screenDisplay, "Temperature") != 0) {
           // if the temperature and humidity are different from before
 
           default_screen_setup(2);
-          display.print(F("Temperature: "));
+          display.println(F("Temp:"));
           display.print(temperature);
           if (temperatureUnit == 0){
             display.println(F(" C"));
@@ -395,7 +396,7 @@ void loop() {
             display.println(F(" F"));
           }
 
-          display.print(F("Humidity: "));
+          display.println(F("Humi:"));
           display.print(humidity);
           display.println(F(" %"));
 
@@ -416,11 +417,11 @@ void loop() {
           strcmp(screenDisplay, "Sound") != 0) {
         // if the sound level is different from before
         default_screen_setup(2);
-        display.print(F("Sound Level: "));
+        display.println(F("Sound:"));
         display.println(soundLevel);
 
         if (soundLevel > maxSoundLevel){
-          display.println("Stop shouting!");
+          display.println(F("Stop shouting!"));
         }
 
         display.display();
@@ -514,11 +515,20 @@ void loop() {
       if (buttonState == LOW && heldDown == true){
         if ((millis() - buttonHeldDownAt) / 1000 > 0){
           if (inSetting == false){
+            if (settingMenuItem == 0){
+              inSettingMenuItem = temperatureUnit;
+            }
+            else if (settingMenuItem == 1){
+              inSettingMenuItem = maxSoundLevel;
+            }
+            else if (settingMenuItem == 2){
+              inSettingMenuItem = clockFormat;
+            }
             inSetting = true;
           } else {
             if (settingMenuItem == 0){
               EEPROM.write(temperatureUnitAddress, inSettingMenuItem);
-              temperatureUnit = settingMenuItem;
+              temperatureUnit = inSettingMenuItem;
             } else if (settingMenuItem == 1){
               EEPROM.put(soundThresholdAddress, inSettingMenuItem);
               maxSoundLevel = inSettingMenuItem;
@@ -538,10 +548,10 @@ void loop() {
               if (inSettingMenuItem == 300){
                 inSettingMenuItem = 500;
               }
-              if (inSettingMenuItem == 500){
+              else if (inSettingMenuItem == 500){
                 inSettingMenuItem = 700;
               }
-              if (inSettingMenuItem == 700){
+              else if (inSettingMenuItem == 700){
                 inSettingMenuItem = 300;
               }
             }
@@ -568,9 +578,9 @@ void loop() {
       unsigned long elapsed = millis() - lockdownStartTime;
       long secondsLeft = (long)((lockdownFor - elapsed) / 1000);
 
-      char lockdownDisplayText[50];
+      char lockdownDisplayText[20];
       snprintf(lockdownDisplayText, sizeof(lockdownDisplayText),
-         "Lockdown. Will unlock in %ld seconds", secondsLeft);
+         "Lockdown %ld", secondsLeft);
 
       if (strcmp(screenDisplay, lockdownDisplayText) != 0){
         // displaying lockdown screen if seconds have changed
