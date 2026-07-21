@@ -1,5 +1,5 @@
 # Smartwatch Interface
-This is my first hardware related project, in which I use a *Grove Beginning Kit for Arduino* to create a interface on the OLED Display which is supposed to somewhat imitate a smartwatch.
+This is my first hardware related project, in which I use a *Grove Beginner Kit for Arduino* to create a interface on the OLED Display which is supposed to somewhat imitate a smartwatch.
 
 Although it makes use of an OLED Display, Piezo Buzzer, Button, Rotary Potentiometer, Sound Sensor and a Temperature & Humidity Sensor, I would consider this to be mainly a software project as the whole time I spent on this (roughly 11 hours), was writing the code.
 
