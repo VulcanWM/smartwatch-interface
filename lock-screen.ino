@@ -35,6 +35,19 @@ float previousHumidity = -1000.0;
 int previousSoundLevel = -1000;
 char previousClockTime[8] = ""; 
 
+unsigned long previousStopwatchSecond = -1;
+int previousStopwatchMenuItem = -1;
+bool previousStopwatchStarted = false;
+
+unsigned long previousTimerSeconds = -1;
+int previousTimerMenuItem = -1;
+bool previousTimerStarted = false;
+unsigned long previousTimerTimeLeftAtStop = -1;
+
+bool previousInSetting = false;
+int previousSettingMenuItem = -1;
+int previousInSettingMenuItem = -1;
+
 // lockdown global variables
 int incorrectAttempts = 0;
 bool inLockdown = false;
@@ -164,8 +177,6 @@ void loop() {
           }
         }
         snprintf(timeDisplay, sizeof(timeDisplay), "%02d:%02d%s", hours, minutes, ending);
-
-        delay(100);
       }
 
       if (strcmp(timeDisplay, previousClockTime) ||
@@ -181,49 +192,61 @@ void loop() {
     } else if (number == 1) {
       // stopwatch
 
-      // TODO: only change text when buttons pressed or time changed
-
-      default_screen_setup(2);
-      display.println(F("Stopwatch"));
-
-      // generate the time to display
-      int minutes;
-      int seconds;
       unsigned long totalSeconds;
 
-      char stopwatchTime[10];
-
-      if (stopwatchStarted == true){
+      if (stopwatchStarted) {
         totalSeconds = (millis() - timeOfStart) / 1000;
       } else {
         totalSeconds = differenceAtStop / 1000;
       }
 
-      minutes = totalSeconds / 60;
-      seconds = totalSeconds - (minutes * 60);
+      if (
+        strcmp(screenDisplay, "Stopwatch") != 0 ||
+        totalSeconds != previousStopwatchSecond ||
+        stopwatchMenuItem != previousStopwatchMenuItem ||
+        stopwatchStarted != previousStopwatchStarted
+      ) {
 
-      snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
+        default_screen_setup(2);
+        display.println(F("Stopwatch"));
 
-      display.println(stopwatchTime);
+        // generate the time to display
+        int minutes;
+        int seconds;
 
-      // display the 2 action items
-      if (stopwatchMenuItem == 0){
-        display.print(F("> "));
-      } else {
-        display.print(F("  "));
+        char stopwatchTime[10];
+
+        minutes = totalSeconds / 60;
+        seconds = totalSeconds - (minutes * 60);
+
+        snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
+
+        display.println(stopwatchTime);
+
+        // display the 2 action items
+        if (stopwatchMenuItem == 0){
+          display.print(F("> "));
+        } else {
+          display.print(F("  "));
+        }
+        if (stopwatchStarted == true){
+          display.println(F("Stop"));
+        } else {
+          display.println(F("Start"));
+        }
+        if (stopwatchMenuItem == 1){
+          display.print(F("> "));
+        } else {
+          display.print(F("  "));
+        }
+        display.println(F("Reset"));
+        display.display();
+
+        previousStopwatchSecond = totalSeconds;
+        previousStopwatchMenuItem = stopwatchMenuItem;
+        previousStopwatchStarted = stopwatchStarted;
+        strcpy(screenDisplay, "Stopwatch");
       }
-      if (stopwatchStarted == true){
-        display.println(F("Stop"));
-      } else {
-        display.println(F("Start"));
-      }
-      if (stopwatchMenuItem == 1){
-        display.print(F("> "));
-      } else {
-        display.print(F("  "));
-      }
-      display.println(F("Reset"));
-      display.display();
 
       // use the button to do actions
       buttonState = digitalRead(buttonPin);
@@ -253,51 +276,39 @@ void loop() {
     } else if (number == 2) {
       // timer
 
-      default_screen_setup(2);
-      display.println(F("Timer"));
-      if (timerStarted == true){
-        // generate the time to display
-        int minutes;
-        int seconds;
-        unsigned long totalSeconds = timerDuration - ((millis() - timerTimeOfStart) / 1000);
+      unsigned long timerDisplaySeconds;
 
-        char stopwatchTime[10];
+      if (timerStarted) {
+        unsigned long elapsedSeconds =
+          (millis() - timerTimeOfStart) / 1000;
 
-        minutes = totalSeconds / 60;
-        seconds = totalSeconds - (minutes * 60);
-
-        snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
-
-        display.println(stopwatchTime);
-
-        if (timerMenuItem == 0){
-          display.print(F("> "));
+        if (elapsedSeconds >= (unsigned long) timerDuration) {
+          timerDisplaySeconds = 0;
         } else {
-          display.print(F("  "));
+          timerDisplaySeconds = timerDuration - elapsedSeconds;
         }
-        display.println(F("Stop"));
-        if (timerMenuItem == 1){
-          display.print(F("> "));
-        } else {
-          display.print(F("  "));
-        }
-        display.println(F("Cancel"));
       } else {
-        if (timerTimeLeftAtStop == 0){
-          display.println(F("1 5 10"));
-          int spaces = timerMenuItem * 2;
-          for (int i = 0; i < spaces; i++){
-            display.print(F(" "));
-          }
-          display.println(F("^"));
-        } else {
+        timerDisplaySeconds = timerTimeLeftAtStop;
+      }
+
+      bool timerChanged =
+        strcmp(screenDisplay, "Timer") != 0 ||
+        timerDisplaySeconds != previousTimerSeconds ||
+        timerMenuItem != previousTimerMenuItem ||
+        timerStarted != previousTimerStarted ||
+        timerTimeLeftAtStop != previousTimerTimeLeftAtStop;
+
+      if (timerChanged) {
+        default_screen_setup(2);
+        display.println(F("Timer"));
+        if (timerStarted == true){
+          // generate the time to display
           int minutes;
           int seconds;
-
           char stopwatchTime[10];
 
-          minutes = timerTimeLeftAtStop / 60;
-          seconds = timerTimeLeftAtStop - (minutes * 60);
+          minutes = timerDisplaySeconds / 60;
+          seconds = timerDisplaySeconds - (minutes * 60);
 
           snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
 
@@ -308,16 +319,56 @@ void loop() {
           } else {
             display.print(F("  "));
           }
-          display.println(F("Start"));
+          display.println(F("Stop"));
           if (timerMenuItem == 1){
             display.print(F("> "));
           } else {
             display.print(F("  "));
           }
           display.println(F("Cancel"));
+        } else {
+          if (timerTimeLeftAtStop == 0){
+            display.println(F("1 5 10"));
+            int spaces = timerMenuItem * 2;
+            for (int i = 0; i < spaces; i++){
+              display.print(F(" "));
+            }
+            display.println(F("^"));
+          } else {
+            int minutes;
+            int seconds;
+
+            char stopwatchTime[10];
+
+            minutes = timerDisplaySeconds / 60;
+            seconds = timerDisplaySeconds - (minutes * 60);
+
+            snprintf(stopwatchTime, sizeof(stopwatchTime), "%02d:%02d", minutes, seconds);
+
+            display.println(stopwatchTime);
+
+            if (timerMenuItem == 0){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("Start"));
+            if (timerMenuItem == 1){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("Cancel"));
+          }
         }
+        display.display();
+
+        previousTimerSeconds = timerDisplaySeconds;
+        previousTimerMenuItem = timerMenuItem;
+        previousTimerStarted = timerStarted;
+        previousTimerTimeLeftAtStop = timerTimeLeftAtStop;
+        strcpy(screenDisplay, "Timer");
       }
-      display.display();
 
       buttonState = digitalRead(buttonPin);
       if (buttonState == HIGH && heldDown == false){
@@ -382,8 +433,8 @@ void loop() {
           temperature = (temperature * (9.0/5.0)) + 32;
         }
 
-        if (fabs(temperature - previousTemperature) > 0.1 ||
-          fabs(humidity - previousHumidity) > 0.1 ||
+        if (fabs(temperature - previousTemperature) >= 0.1 ||
+          fabs(humidity - previousHumidity) >= 0.1 ||
           strcmp(screenDisplay, "Temperature") != 0) {
           // if the temperature and humidity are different from before
 
@@ -407,7 +458,6 @@ void loop() {
           strcpy(screenDisplay, "Temperature");
         }
       }
-      delay(100);
     }
     else if (number == 4){
       // sound monitor
@@ -429,83 +479,94 @@ void loop() {
         previousSoundLevel = soundLevel;
         strcpy(screenDisplay, "Sound");
       }
-      delay(100);
     } else if (number == 5){
       // settings
-      default_screen_setup(2);
-      if (inSetting == false){
-        display.println(F("Settings"));
-        if (settingMenuItem == 0){
-          display.print(F("> "));
+
+      bool settingsChanged =
+        strcmp(screenDisplay, "Settings") != 0 ||
+        inSetting != previousInSetting ||
+        settingMenuItem != previousSettingMenuItem ||
+        inSettingMenuItem != previousInSettingMenuItem;
+
+      if (settingsChanged) {
+        default_screen_setup(2);
+        if (inSetting == false){
+          display.println(F("Settings"));
+          if (settingMenuItem == 0){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("Temp"));
+          if (settingMenuItem == 1){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("Sound"));
+          if (settingMenuItem == 2){
+            display.print(F("> "));
+          } else {
+            display.print(F("  "));
+          }
+          display.println(F("Time"));
         } else {
-          display.print(F("  "));
+          if (settingMenuItem == 0){
+            display.println(F("Temp Unit"));
+            if (inSettingMenuItem == 0){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("C"));
+            if (inSettingMenuItem == 1){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("F"));
+          } else if (settingMenuItem == 1){
+            display.println(F("Sound Lim"));
+            if (inSettingMenuItem == 300){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("300"));
+            if (inSettingMenuItem == 500){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("500"));
+            if (inSettingMenuItem == 700){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("700"));
+          } else {
+            display.println(F("Time Form"));
+            if (inSettingMenuItem == 0){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("24 hour"));
+            if (inSettingMenuItem == 1){
+              display.print(F("> "));
+            } else {
+              display.print(F("  "));
+            }
+            display.println(F("12 hour"));
+          }
         }
-        display.println(F("Temp"));
-        if (settingMenuItem == 1){
-          display.print(F("> "));
-        } else {
-          display.print(F("  "));
-        }
-        display.println(F("Sound"));
-        if (settingMenuItem == 2){
-          display.print(F("> "));
-        } else {
-          display.print(F("  "));
-        }
-        display.println(F("Time"));
-        // show the 3 menu items
-      } else {
-        if (settingMenuItem == 0){
-          display.println(F("Temp Unit"));
-          if (inSettingMenuItem == 0){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("C"));
-          if (inSettingMenuItem == 1){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("F"));
-        } else if (settingMenuItem == 1){
-          display.println(F("Sound Lim"));
-          if (inSettingMenuItem == 300){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("300"));
-          if (inSettingMenuItem == 500){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("500"));
-          if (inSettingMenuItem == 700){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("700"));
-        } else {
-          display.println(F("Time Form"));
-          if (inSettingMenuItem == 0){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("24 hour"));
-          if (inSettingMenuItem == 1){
-            display.print(F("> "));
-          } else {
-            display.print(F("  "));
-          }
-          display.println(F("12 hour"));
-        }
+        display.display();
+        previousInSetting = inSetting;
+        previousSettingMenuItem = settingMenuItem;
+        previousInSettingMenuItem = inSettingMenuItem;
+        strcpy(screenDisplay, "Settings");
       }
-      display.display();
 
       buttonState = digitalRead(buttonPin);
       if (buttonState == HIGH && heldDown == false){
