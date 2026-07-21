@@ -3,6 +3,8 @@ This is my first hardware related project, in which I use a *Grove Beginning Kit
 
 Although it makes use of an OLED Display, Piezo Buzzer, Button, Rotary Potentiometer, Sound Sensor and a Temperature & Humidity Sensor, I would consider this to be mainly a software project as the whole time I spent on this (roughly 11 hours), was writing the code.
 
+It was very satisfying to write as I had to solve problems like how to get multiple inputs with only a button and a potentiometer, and I ended up using short and long button presses for different input types.
+
 Its features are:
 - A password input screen, in which you need to input a 4 digit code, and can only see the main screen if logged in
 - A lockdown script, so if you enter an incorrect password more than 2 times it locks you out for a certain amount of times (depending on number of consecutive incorrect login attempts)
